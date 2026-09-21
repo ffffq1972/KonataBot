@@ -472,7 +472,7 @@ async def Diluc(ctx):
     source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
     voice_client.play(source)
 
-    await ctx.reply(f"모두의 **아☆이☆돌** 다★이☆루★크가 선정한 노!동!요! **재생**한다.")
+    await ctx.reply(f"모두의 아☆이☆돌 __*다★이☆루★크*__가 선정한 [노!동!요!](https://youtu.be/u8E_ow6gwDI?si=OIL-LuOZDtYdiwYM)를 **재생**한다.")
 
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")

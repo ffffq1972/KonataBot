@@ -221,16 +221,15 @@ async def helpPoint(ctx):
 # 이준바보
 @BOT.command(name="간고등어", description="병신")
 async def IjunBaBo(ctx):
-    for _ in range(5):
-        await ctx.send("병@신")
+    await ctx.send("병@신")
 
 # 안녕
 @BOT.command(name="안녕", description="간고등어를 부른다.")
 async def hello(ctx):
     if IsIjun(ctx.author.id):
-        await ctx.reply(f"어쩌라고 간고등어")
+        await ctx.reply(f"어쩌라고 {ctx.author.mention}")
     else:
-        await ctx.reply(f"안녕 간고등어의 친구 {ctx.author.mention}") # 이준이 예외처리
+        await ctx.reply(f"안녕 간고등어의 친구 {ctx.author.mention}")
 
 # ping
 @BOT.command(name="ping", description="핑(지연시간) 확인")

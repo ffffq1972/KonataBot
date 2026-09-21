@@ -174,16 +174,20 @@ async def on_presence_update(before, after):
 
 # 도움!
 DoUm = "# 명령어들\
+        \n***\n## 채팅\
         \n* **!도움** or **/도움**\
         \n `도움말을 출력한다.`\
         \n* **!간고등어**\
-        \n `병신`\
+        \n `멍청이`\
+        \n* **!멍청이**\
+        \n `간고등어를 부른다.`\
         \n* **!안녕**\
         \n `인사한다.`\
         \n* **!ping**\
         \n `핑(지연시간)을 확인한다.`\
         \n* **!say**\
         \n `반복해서 말한다. !say 치면 자세한 사용법 나온다.`\
+        \n***\n## 노래관련\
         \n* **!노래사용법**\
         \n `여기에 '!노래' 시리즈 설명하기 귀찮으니깐 이거치면 설명한다.`\
         \n* **!노래재생**\
@@ -194,13 +198,28 @@ DoUm = "# 명령어들\
         \n `노래를 다시 재생한다.`\
         \n* **!노래퇴장**\
         \n `봇을 퇴장시킨다.`\
+        \n***\n## 접속관련\
         \n* **!접속시간**\
         \n `접속한 시간을 알려준다.`\
         \n* **!게임시간**\
         \n `게임을 한 시간을 알려준다.`\
-        \n\n## 주의할점\
+        \n***\n## 주의할점\
         \n* **거의 모든 명령어는 앞에 `!`를 붙인다.**\
-        \n* **딱히없다. 그냥 잘 쓰면 된다.**"
+        \n* **딱히없다. 그냥 잘 쓰면 된다.**\
+        \n* **큰따옴표(\") 있으면 붙여라.**"
+
+NoreDoUm = "# 노래 재생 방법!\
+            \n`!노래재생 \"{노래 제목}\"` : `노래 제목`을 재생한다.\
+            \n***\n## 노래 멈추고 다시 재생하는 방법!\
+            \n`!노래일시정지` : 노래를 일시정지 시킨다.\
+            \n`!노래다시재생` : 노래를 다시 재생시킨다.\
+            \n# 봇 퇴장시키는 방법!\
+            \n`!노래퇴장` : 봇을 퇴장시킨다.\
+            \n***\n## **주의할점**\
+            \n* 방에 들어가있어야지 봇이 들어가서 재생시킨다.\
+            \n* `!노래재생`만 입력하면 재생 안된다. `\"{노래 제목}\"`도 입력해라.\
+            \n* `{노래 제목}`에는 꼭 `\"`(큰따옴표)사이에 넣어라.\
+            \n* `{노래 제목}` 대신 URL을 넣으면 정확한 곡을 재생시킬 수 있다!"
 
 # 슬래시 명령어
 
@@ -219,9 +238,14 @@ async def helpPoint(ctx):
     await ctx.send(DoUm)
 
 # 이준바보
-@BOT.command(name="간고등어", description="병신")
+@BOT.command(name="간고등어", description="멍청이")
 async def IjunBaBo(ctx):
-    await ctx.send("병@신")
+    await ctx.send("멍@청@이")
+
+# 멍청이
+@BOT.command(name="멍청이", description="이@준")
+async def BaBoIjun(ctx):
+    await ctx.send(f"# <@{ijun}>")
 
 # 안녕
 @BOT.command(name="안녕", description="간고등어를 부른다.")
@@ -342,21 +366,11 @@ async def check_game_time_error(ctx, err):
 # 노래사용법
 @BOT.command(name="노래사용법", description="노래 사용법을 출력한다.")
 async def HowtoUsePlayTheSong(ctx):
-    await ctx.reply(" \
-                                            # 노래 재생 방법!\
-                                            \n`!노래재생 \"{노래 제목}\"` : `노래 제목`을 재생한다.\
-                                            \n# 노래 멈추고 다시 재생하는 방법!\
-                                            \n`!노래일시정지` : 노래를 일시정지 시킨다.\
-                                            \n`!노래다시재생` : 노래를 다시 재생시킨다.\
-                                            \n# 봇 퇴장시키는 방법!\
-                                            \n`!노래퇴장` : 봇을 퇴장시킨다.\
-                                            \n# **주의할점**\
-                                            \n* 방에 들어가있어야지 봇이 들어가서 재생시킨다.\
-                                            \n* `!노래재생`만 입력하면 재생 안된다. `\"{노래 제목}\"`도 입력해라.")
+    await ctx.reply(NoreDoUm)
 
 # 재생
 @BOT.command(name="노래재생", description="노래를 재생한다.")
-async def play(ctx, *, search: str):
+async def play(ctx, search: str):
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -374,12 +388,14 @@ async def play(ctx, *, search: str):
     elif voice_client.channel != channel:
         await voice_client.move_to(channel)
 
-    # 유튜브에서 음원 스트리밍 URL 추출
-    await ctx.send("음원 검색중이다...")
+    # 유튜브에서 음원 or URL 추출
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
         if not search.startswith("http"):
+            await ctx.send("음원 검색중이다...")
             search = f"ytsearch:{search}" # 검색어로 찾기
-        info = ydl.extract_info(search, download=False)
+        else:
+            await ctx.send("음원을 재생하겠다...")
+        info = ydl.extract_info(search, download=False) # URL로 찾기
         if 'entries' in info:
             info = info['entries'][0]
         url = info['url']

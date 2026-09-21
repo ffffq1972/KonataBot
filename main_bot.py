@@ -9,8 +9,8 @@
 
 import discord, os, sys, yt_dlp, asyncio
 from discord import app_commands
-from discord.ext import commands
-from datetime import datetime
+from discord.ext import commands, tasks
+from datetime import datetime, time
 
 # 인텐트(권한) 설정
 intents = discord.Intents.default()
@@ -39,15 +39,15 @@ def get_token():
     dir = os.path.dirname(os.path.abspath(__file__))
     dir = os.path.join(dir, file_name)
     if not os.path.exists(dir): # 파일 없을 때
-        print(error(f"[+] 파일 읽기 실패!\n[+] \"{file_name}\" 파일을 생성해주세요!"))
+        print(error(f"[+] Token 파일 읽기 실패!\n[+] \"{file_name}\" 파일을 생성해주세요!"))
         sys.exit(1) # 프로그램 종료
 
     with open(dir, "r", encoding="utf=8") as f:
         token = f.read().strip()
-    print(success(f"[+] 파일을 찾았습니다!"))
+    print(success(f"[+] Token 파일을 찾았습니다!"))
 
     if not token: # 파일 비었을 때
-        print(error(f"[+] 파일이 비어있습니다!"))
+        print(error(f"[+] Token 파일이 비어있습니다!"))
         sys.exit(1)
 
     return token
@@ -85,6 +85,21 @@ def get_playing_game_name(member):
         elif activity.type == discord.ActivityType.playing:
             return activity.name
     return None
+
+# 초기화
+@tasks.loop(time=time(hour=0, minute=0, second=0))
+async def reset_status():
+    now = datetime.now()
+
+    user_online_time.clear()
+    user_game_total.clear()
+
+    for user_id in list(user_login_time.keys()):
+        user_login_time[user_id] = now
+    for user_id in list(user_current_game.keys()):
+        user_current_game[user_id]["start_time"] = now
+
+    print(success(f"[+] {now.strftime('%Y-%m-%d')} - 시간 초기화!"))
 
 # 봇 이벤트
 @BOT.event
@@ -126,6 +141,9 @@ async def on_ready():
                 game_count += 1
 
         print(success(f"[+] 기존 접속자 {online_count}명, 게임 플레이어 {game_count}명 시간 추적 시작!"))
+
+    if not reset_status.is_running():
+        reset_status.start()
 
 # 유저 상태 및 게임 변화 감지 이벤트
 @BOT.event

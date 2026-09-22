@@ -523,20 +523,27 @@ async def Diluc(ctx):
         await voice_client.move_to(channel)
 
     # 노동요를 튼다.
-    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
-        info = ydl.extract_info("https://youtu.be/u8E_ow6gwDI?si=OIL-LuOZDtYdiwYM", download=False) # URL로 찾기
-        if 'entries' in info:
-            info = info['entries'][0]
-        url = info['url']
-        title = info.get('title', '제목 없음')
+    DilucSong_dir = os.path.dirname(os.path.abspath (__file__))
+    DilucSong_dir = os.path.join(DilucSong_dir, "Diluc.mp3")
+
+    if not os.path.exists(DilucSong_dir):
+        await ctx.reply("에러! 제작자에게 문의해라.")
+        return
 
     # 재생 중이면 중지 후 새로 재생
     if voice_client.is_playing():
         voice_client.stop()
 
-    source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-    voice_client.play(source)
+    def play_loop(error=None):
+        if error:
+            print(f"[-] 재생 에러!\n{error}")
+            return
+        if voice_client and voice_client.is_connected():
+            source = discord.FFmpegPCMAudio(DilucSong_dir)
+            voice_client.play(source, after=play_loop)
 
+    play_loop()
+    
     await ctx.reply(f"모두의 아☆이☆돌 __*다★이☆루★크*__가 선정한 [노!동!요!](https://youtu.be/u8E_ow6gwDI?si=OIL-LuOZDtYdiwYM)를 **재생**한다.")
 
 # 일시정지

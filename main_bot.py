@@ -7,11 +7,11 @@
 # Linux
 # sudo apt install -y ffmpeg
 
-import discord, os, sys, yt_dlp, asyncio
+import discord, os, sys, yt_dlp, asyncio, json
 from discord import app_commands
 from zoneinfo import ZoneInfo
 from discord.ext import commands, tasks
-from datetime import datetime, time
+from datetime import datetime, time, timezone, timedelta
 
 # 인텐트(권한) 설정
 intents = discord.Intents.default()
@@ -20,7 +20,7 @@ intents.presences = True
 intents.members = True
 
 # 한국시간 정의
-KST = ZoneInfo("Asia/Seoul")
+KST = timezone(timedelta(hours=9)) # 표준시간에서 한국시간 오차 빼기
 
 # 뻘짓
 def error(text):
@@ -56,6 +56,51 @@ def get_token():
 
     return token
 
+# 시간 저장 파일 저장하기
+def save_time_data():
+    file_name = "user_time_data.json" # 시간 저장 파일 이름
+    dir = os.path.dirname(os.path.abspath(__file__))
+    dir = os.path.join(dir, file_name)
+
+    now = datetime.now()
+
+    # 현재 접속중인 유저 정산
+    for user_id in list(user_login_time.keys()):
+        duration = (now - user_login_time[user_id]).total_seconds()
+        user_online_time[user_id] = user_online_time.get(user_id, 0) + duration
+        user_login_time[user_id] = now # 시작 기준시간 초기화
+
+    # 현재 게임중인 유저 정산
+    for user_id, current in list(user_current_game.items()):
+        game_name = current["game_name"]
+        duration = (now - current["start_time"]).total_seconds()
+        if user_id not in user_game_total:
+            user_game_total[user_id] = {}
+        user_game_total[user_id][game_name] = user_game_total[user_id].get(game_name, 0) + duration
+        current["start_time"] = now # 시작 기준시간 초기화
+
+    data = {"online_time": user_online_time,
+            "game_total": user_game_total}
+    with open(dir, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+    print(success(f"[+] JSON 저장 성공!"))
+
+# 시간 저장 파일 불러오기
+def load_time_data():
+    file_name = "user_time_data.json" # 시간 저장 파일 이름
+    dir = os.path.dirname(os.path.abspath(__file__))
+    dir = os.path.join(dir, file_name)
+    global user_online_time, user_game_total
+    if os.path.exists(dir):
+        try:
+            with open(dir, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                user_online_time = {int(k): v for k, v in data.get("online_time", {}).items()}
+                user_game_total = {int(k): v for k, v in data.get("game_total", {}).items()}
+            print(success(f"[+] JSON 불러오기 성공!"))
+        except Exception as e:
+            print(error(f"[+] JSON 불러오기 실패!\n{e}"))
+
 # 봇 객체 생성
 BOT = commands.Bot(command_prefix="!", intents=intents)
 
@@ -90,7 +135,7 @@ def get_playing_game_name(member):
             return activity.name
     return None
 
-# 초기화
+# 시간 초기화
 @tasks.loop(time=time(hour=0, minute=0, second=0, tzinfo=KST))
 async def reset_status():
     now = datetime.now()
@@ -104,11 +149,18 @@ async def reset_status():
     for user_id in list(user_current_game.keys()):
         user_current_game[user_id]["start_time"] = now
 
+    save_time_data()
+
     print(success(f"[+] {now.strftime('%Y-%m-%d')} - 시간 초기화!"))
+
+@tasks.loop(seconds=30)
+async def auto_save():
+    save_time_data()
 
 # 봇 이벤트
 @BOT.event
 async def on_ready():
+    load_time_data()
     print(success(f"[+] 로그인: {BOT.user.name} (ID: {BOT.user.id})"))
     
     # 슬래시 커맨드 동기화
@@ -149,6 +201,8 @@ async def on_ready():
 
     if not reset_status.is_running():
         reset_status.start()
+    if not auto_save.is_running():
+        auto_save.start()
 
 # 유저 상태 및 게임 변화 감지 이벤트
 @BOT.event
@@ -311,9 +365,9 @@ async def say_error(ctx, err):
     else:
         print(error(f"[+] 알 수 없는 에러!\n{err}"))
 
-@BOT.command(name="시간", description="시간을 출력한다.", time=time(tzinfo=KST))
+@BOT.command(name="시간", description="시간을 출력한다.")
 async def printTime(ctx):
-    ctx.reply(f"{datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분 %S초')}")
+    await ctx.reply(f"{datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분 %S초')}")
 
 # 접속시간
 @BOT.command(name="접속시간", description="접속시간을 출력한다.")

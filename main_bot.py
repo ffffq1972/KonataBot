@@ -209,7 +209,9 @@ DoUm = "# 명령어들\
         \n* **!ping**\
         \n `핑(지연시간)을 확인한다.`\
         \n* **!say**\
-        \n `반복해서 말한다. !say 치면 자세한 사용법 나온다.`\
+        \n `반복해서 말한다.`\
+        \n* **!시간**\
+        \n `현재 시간을 출력한다.`\
         \n\n## 노래관련\
         \n* **!노래사용법**\
         \n `여기에 '!노래' 시리즈 설명하기 귀찮으니깐 이거치면 설명한다.`\
@@ -308,6 +310,10 @@ async def say_error(ctx, err):
         await ctx.reply("# 사용법\n`!say {말할거} {몇번할지}` 형식으로 작성.")
     else:
         print(error(f"[+] 알 수 없는 에러!\n{err}"))
+
+@BOT.command(name="시간", description="시간을 출력한다.", time=time(tzinfo=KST))
+async def printTime(ctx):
+    ctx.reply(f"{datetime.now().strftime('YYYY년 MM월 DD일 hh시 mm분 ss초')}")
 
 # 접속시간
 @BOT.command(name="접속시간", description="접속시간을 출력한다.")

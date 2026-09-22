@@ -9,6 +9,7 @@
 
 import discord, os, sys, yt_dlp, asyncio
 from discord import app_commands
+from zoneinfo import ZoneInfo
 from discord.ext import commands, tasks
 from datetime import datetime, time
 
@@ -17,6 +18,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.presences = True
 intents.members = True
+
+# 한국시간 정의
+KST = ZoneInfo("Asia/Seoul")
 
 # 뻘짓
 def error(text):
@@ -87,7 +91,7 @@ def get_playing_game_name(member):
     return None
 
 # 초기화
-@tasks.loop(time=time(hour=0, minute=0, second=0))
+@tasks.loop(time=time(hour=0, minute=0, second=0, tzinfo=KST))
 async def reset_status():
     now = datetime.now()
 
@@ -96,6 +100,7 @@ async def reset_status():
 
     for user_id in list(user_login_time.keys()):
         user_login_time[user_id] = now
+
     for user_id in list(user_current_game.keys()):
         user_current_game[user_id]["start_time"] = now
 
@@ -331,7 +336,7 @@ async def check_online_status(ctx, member: discord.Member):
 
     await ctx.reply(
         f"# **{target.display_name}**(이)의 현재 상태: {current_status}\n"
-        f"총 `{hours}시간 {minutes}분 {seconds}초`동안 접속"
+        f"오늘 `{hours}시간 {minutes}분 {seconds}초`동안 접속"
     )
 
 @check_online_status.error

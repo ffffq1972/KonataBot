@@ -313,7 +313,7 @@ async def say_error(ctx, err):
 
 @BOT.command(name="시간", description="시간을 출력한다.", time=time(tzinfo=KST))
 async def printTime(ctx):
-    ctx.reply(f"{datetime.now().strftime('YYYY년 MM월 DD일 hh시 mm분 ss초')}")
+    ctx.reply(f"{datetime.now().strftime('%Y년 %m월 %d일 %H시 %M분 %S초')}")
 
 # 접속시간
 @BOT.command(name="접속시간", description="접속시간을 출력한다.")

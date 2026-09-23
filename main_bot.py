@@ -277,8 +277,6 @@ DoUm = "# 명령어들\
         \n `노래를 다시 재생한다.`\
         \n* **!노래퇴장**\
         \n `봇을 퇴장시킨다.`\
-        \n* **!다이루크노동요**\
-        \n `모두의 아☆이☆돌 다★이☆루★크가 선정한 노!동!요!를 튼다.`\
         \n\n## 접속관련\
         \n* **!접속시간**\
         \n `접속한 시간을 알려준다.`\
@@ -501,50 +499,6 @@ async def play_error(ctx, err):
         await ctx.reply("# 사용법\n`!노래재생 \"{노래 제목}\"` 형식으로 작성.")
     else:
         print(error(f"[+] 알 수 없는 에러!\n{err}"))
-
-# 다이루크 노동요
-@BOT.command(name="다이루크노동요", description="모두의 아☆이☆돌!")
-async def Diluc(ctx):
-    if not ctx.author.voice:
-        await ctx.reply("음성 채널에 들어가라.")
-        return
-
-    channel = ctx.author.voice.channel
-    voice_client = ctx.voice_client
-
-    # 봇이 음성채널에 없으면 입장
-    try:
-        ctx.voice_client.pause() # 먼저 재생중이던 노래 멈추고 입장
-    except:
-        pass
-    if not voice_client:
-        voice_client = await channel.connect()
-    elif voice_client.channel != channel:
-        await voice_client.move_to(channel)
-
-    # 노동요를 튼다.
-    DilucSong_dir = os.path.dirname(os.path.abspath (__file__))
-    DilucSong_dir = os.path.join(DilucSong_dir, "Diluc.mp3")
-
-    if not os.path.exists(DilucSong_dir):
-        await ctx.reply("에러! 제작자에게 문의해라.")
-        return
-
-    # 재생 중이면 중지 후 새로 재생
-    if voice_client.is_playing():
-        voice_client.stop()
-
-    def play_loop(error=None):
-        if error:
-            print(f"[-] 재생 에러!\n{error}")
-            return
-        if voice_client and voice_client.is_connected():
-            source = discord.FFmpegPCMAudio(DilucSong_dir)
-            voice_client.play(source, after=play_loop)
-
-    play_loop()
-    
-    await ctx.reply(f"모두의 아☆이☆돌 __*다★이☆루★크*__가 선정한 [노!동!요!](https://youtu.be/u8E_ow6gwDI?si=OIL-LuOZDtYdiwYM)를 **재생**한다.")
 
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")

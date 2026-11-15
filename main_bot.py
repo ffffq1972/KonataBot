@@ -271,6 +271,12 @@ DoUm = "# 명령어들\
         \n `여기에 '!노래' 시리즈 설명하기 귀찮으니깐 이거치면 설명한다.`\
         \n* **!노래재생**\
         \n `노래를 재생한다.`\
+        # \n* **!다음노래**\
+        # \n `다음 노래를 설정한다.`\
+        # \n* **!노래확인**\
+        # \n `노래들을 확인한다.`\
+        # \n* **!노래스킵**\
+        # \n `다음 노래로 넘어간다.`\
         \n* **!노래일시정지**\
         \n `노래를 일시정지한다.`\
         \n* **!노래다시재생**\
@@ -282,6 +288,8 @@ DoUm = "# 명령어들\
         \n `접속한 시간을 알려준다.`\
         \n* **!게임시간**\
         \n `게임을 한 시간을 알려준다.`\
+        \n\n## 도움말\
+        \n* `--help를 명려어 뒤에 붙여서 사용법을 출력한다.`\
         \n\n## 주의할점\
         \n* **거의 모든 명령어는 앞에 `!`를 붙인다.**\
         \n* **딱히없다. 그냥 잘 쓰면 된다.**\
@@ -292,6 +300,10 @@ NoreDoUm = "# 노래 재생 방법!\
             \n\n## 노래 멈추고 다시 재생하는 방법!\
             \n`!노래일시정지` : 노래를 일시정지 시킨다.\
             \n`!노래다시재생` : 노래를 다시 재생시킨다.\
+            \n\n## 다음노래 시리즈 사용방법!\
+            \n`!다음노래 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `{노래 제목}`을 추가한다.\
+            \n`!노래확인` : 노래들을 리스트로 확인한다.\
+            \n`!노래스킵` : 이번 노래를 스킵하고 다음 노래로 넘어간다.\
             \n# 봇 퇴장시키는 방법!\
             \n`!노래퇴장` : 봇을 퇴장시킨다.\
             \n\n## **주의할점**\
@@ -309,21 +321,32 @@ async def helpSlash(interaction: discord.Interaction):
 
 # 느낌표명령어
 
+def ishelp(param): # --help가 포함됬는지
+    return "--help" not in param
+
 
 # 채팅
 # 도움
 @BOT.command(name="도움", description="도움! 명령어를 모르겠음!")
-async def helpPoint(ctx):
+async def helpPoint(ctx, *, param):
+    if ishelp(param):
+        await ctx.reply("도움말에 도움말이 필요할까...?")
+        return
     await ctx.send(DoUm)
 
 # 이준바보
 @BOT.command(name="간고등어", description="멍청이")
-async def IjunBaBo(ctx):
+async def IjunBaBo(ctx, * , param):
+    if ishelp(param):
+        await ctx.reply("간고등어는 멍청이다.")
+        return
     await ctx.send("멍@청@이")
 
 # 멍청이
 @BOT.command(name="멍청이", description="이@준")
-async def BaBoIjun(ctx):
+async def BaBoIjun(ctx, *, param):
+    if ishelp(param):
+        await ctx.reply("간고등어를 부른다.")
     await ctx.send(f"# <@{ijun}>")
 
 # 안녕

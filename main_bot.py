@@ -566,5 +566,17 @@ async def leave(ctx):
     else:
         await ctx.reply("퇴장 불가능!")
 
+# 퇴장
+@BOT.command(name="나가", description="노래를 재생하는 봇을 퇴장시킨다.")
+async def leave(ctx):
+    if not ctx.author.voice:
+        await ctx.reply("음성 채널에 들어가라.")
+        return
+    if ctx.voice_client:
+        await ctx.voice_client.disconnect()
+        await ctx.reply("퇴장!")
+    else:
+        pass
+
 TOKEN = get_token()
 BOT.run(TOKEN)

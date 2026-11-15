@@ -297,11 +297,12 @@ DoUm = "# 명령어들\
 
 NoreDoUm = "# 노래 재생 방법!\
             \n`!노래재생 \"{노래 제목}\"` : `노래 제목`을 재생한다.\
+            \n`!노래재생 \"{노래 제목}\" -R` : `노래 제목`을 죽을때까지 재생한다.\
             \n\n## 노래 멈추고 다시 재생하는 방법!\
             \n`!노래일시정지` : 노래를 일시정지 시킨다.\
             \n`!노래다시재생` : 노래를 다시 재생시킨다.\
             \n\n## 다음노래 시리즈 사용방법!\
-            \n`!다음노래 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `{노래 제목}`을 추가한다.\
+            \n`!다음노래 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `노래 제목`을 추가한다.\
             \n`!노래확인` : 노래들을 리스트로 확인한다.\
             \n`!노래스킵` : 이번 노래를 스킵하고 다음 노래로 넘어간다.\
             \n# 봇 퇴장시키는 방법!\
@@ -476,7 +477,7 @@ async def HowtoUsePlayTheSong(ctx):
 
 # 재생
 @BOT.command(name="노래재생", description="노래를 재생한다.")
-async def play(ctx, search: str):
+async def play(ctx, search: str, param1: str = None):
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -511,10 +512,20 @@ async def play(ctx, search: str):
     if voice_client.is_playing():
         voice_client.stop()
 
-    source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-    voice_client.play(source)
-
-    await ctx.reply(f"**재생 시작!**\n{title}")
+    def play_loop(error=None):
+        if error:
+            print(f"[-] 재생 에러!\n{error}")
+            return
+        if voice_client and voice_client.is_connected():
+            source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+            voice_client.play(source, after=play_loop)
+    if param1 == "-R" or param1 == "-r":
+        play_loop()
+        await ctx.reply(f"**무한재생 시작!**\n{title}")
+    else:
+        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+        voice_client.play(source)
+        await ctx.reply(f"**재생 시작!**\n{title}")
 
 @play.error
 async def play_error(ctx, err):

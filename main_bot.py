@@ -28,6 +28,10 @@ def error(text):
 def success(text):
     return "[+] 성공!\n" + text
 
+# 노래
+SongList = [] # 리스트
+Infinite = False # 무한재생
+
 # 상태 저장 딕셔너리
 user_online_time = {} # 누적 온라인 초
 user_login_time = {} # 온라인된 시각
@@ -271,12 +275,16 @@ DoUm = "# 명령어들\
         \n `여기에 '!노래' 시리즈 설명하기 귀찮으니깐 이거치면 설명한다.`\
         \n* **!노래재생**\
         \n `노래를 재생한다.`\
-        # \n* **!다음노래**\
+        # \n* **!노래추가**\
         # \n `다음 노래를 설정한다.`\
         # \n* **!노래확인**\
         # \n `노래들을 확인한다.`\
         # \n* **!노래스킵**\
         # \n `다음 노래로 넘어간다.`\
+        # \n* **!노래삭제**\
+        # \n `노래를 삭제한다.`\
+        # \n* **!노래리셋**\
+        # \n `리스트에 있는 노래들을 모두 삭제한다.`\
         \n* **!노래일시정지**\
         \n `노래를 일시정지한다.`\
         \n* **!노래다시재생**\
@@ -302,9 +310,11 @@ NoreDoUm = "# 노래 재생 방법!\
             \n`!노래일시정지` : 노래를 일시정지 시킨다.\
             \n`!노래다시재생` : 노래를 다시 재생시킨다.\
             \n\n## 다음노래 시리즈 사용방법!\
-            \n`!다음노래 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `노래 제목`을 추가한다.\
+            \n`!노래추가 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `노래 제목`을 추가한다.\
             \n`!노래확인` : 노래들을 리스트로 확인한다.\
             \n`!노래스킵` : 이번 노래를 스킵하고 다음 노래로 넘어간다.\
+            \n`!노래삭제 {N1}` : 리스트의 `N1`번째 노래를 삭제한다.\
+            \n`!노래리셋` : 리스트에 있는 노래들을 모두 삭제한다.\
             \n# 봇 퇴장시키는 방법!\
             \n`!노래퇴장` : 봇을 퇴장시킨다.\
             \n\n## **주의할점**\
@@ -478,6 +488,7 @@ async def HowtoUsePlayTheSong(ctx):
 # 재생
 @BOT.command(name="노래재생", description="노래를 재생한다.")
 async def play(ctx, search: str, param1: str = None):
+    global SongList
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -508,17 +519,22 @@ async def play(ctx, search: str, param1: str = None):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    # 재생 중이면 중지 후 새로 재생
-    if voice_client.is_playing():
-        voice_client.stop()
-
     def play_loop(error=None):
         if error:
             print(f"[-] 재생 에러!\n{error}")
             return
         if voice_client and voice_client.is_connected():
-            source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-            voice_client.play(source, after=play_loop)
+            SongList.append(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS))
+            voice_client.play(SongList[0], after=play_loop)
+
+    '''
+    리스트로 재생하는거 만들어야함
+    리스트 맨앞에 있는거 재생하고 다 재생하면 가장 앞에 있는거 pop하고 다시 맨앞에거 재생
+    추가하는거는 가장 뒤에 추가
+    리스트로 출력할때 인덱스번호 말고 그냥 1부터번호로
+    삭제할때도 인덱스번호 말고 1부터로 하게 조심하기!
+    '''
+
     if param1 == "-R" or param1 == "-r":
         play_loop()
         await ctx.reply(f"**무한재생 시작!**\n{title}")
@@ -531,6 +547,36 @@ async def play(ctx, search: str, param1: str = None):
 async def play_error(ctx, err):
     if isinstance(err, commands.MissingRequiredArgument):
         await ctx.reply("# 사용법\n`!노래재생 \"{노래 제목}\"` 형식으로 작성.")
+    else:
+        print(error(f"[+] 알 수 없는 에러!\n{err}"))
+
+# 다음 노래 추가
+@BOT.command(name="노래추가", description="노래를 추가한다.")
+async def play(ctx, search: str):
+    if not ctx.author.voice:
+        await ctx.reply("음성 채널에 들어가라.")
+        return
+    
+    # 유튜브에서 음원 or URL 추출
+    with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
+        if not search.startswith("http"):
+            await ctx.send("음원 검색중이다...")
+            search = f"ytsearch:{search}" # 검색어로 찾기
+        else:
+            await ctx.send("음원을 재생하겠다...")
+        info = ydl.extract_info(search, download=False) # URL로 찾기
+        if 'entries' in info:
+            info = info['entries'][0]
+        url = info['url']
+        title = info.get('title', '제목 없음')
+    SongList.append(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS))
+
+    await ctx.reply(f"**다음 노래!**\n{title}")
+
+@play.error
+async def play_error(ctx, err):
+    if isinstance(err, commands.MissingRequiredArgument):
+        await ctx.reply("# 사용법\n`!노래추가 \"{노래 제목}\"` 형식으로 작성.")
     else:
         print(error(f"[+] 알 수 없는 에러!\n{err}"))
 
@@ -566,7 +612,7 @@ async def leave(ctx):
     else:
         await ctx.reply("퇴장 불가능!")
 
-# 퇴장
+# 나가
 @BOT.command(name="나가", description="노래를 재생하는 봇을 퇴장시킨다.")
 async def leave(ctx):
     if not ctx.author.voice:

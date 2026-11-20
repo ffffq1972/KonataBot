@@ -587,6 +587,26 @@ async def add_song_error(ctx, err):
     else:
         print(error(f"[+] 알 수 없는 에러!\n{err}"))
 
+# 노래확인
+@BOT.command(name="노래확인", description="노래 리스트를 확인한다.")
+async def check_song(ctx):
+    songlist = "# 노래 리스트!\n"
+    for i in range(len(SongList)):
+        songlist += f"**{i+1}. {SongList[i].title}**\n"
+    await ctx.reply(songlist)
+
+# 노래스킵
+@BOT.command(name="노래스킵", description="다음 노래로 넘어간다.")
+async def skip_song(ctx):
+    global SongList
+    if not ctx.author.voice:
+        await ctx.reply("음성 채널에 들어가라.")
+        return
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+        SongList.pop(0) # 리스트 맨앞 삭제
+        await ctx.reply(f"다음 노래 : **{SongList[0].title}**")
+
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")
 async def pause(ctx):

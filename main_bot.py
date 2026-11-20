@@ -595,6 +595,8 @@ async def add_song(ctx, search: str, index: int = None):
         return
     else:
         SongList.insert(index - 1, {"title": title, "url": url})
+    if index is None:
+        index = len(SongList)
     await ctx.reply(f"**노래 추가 완료! ({index}번)**\n{title}")
 
 @add_song.error

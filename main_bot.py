@@ -276,16 +276,16 @@ DoUm = "# 명령어들\
         \n `여기에 '!노래' 시리즈 설명하기 귀찮으니깐 이거치면 설명한다.`\
         \n* **!노래재생**\
         \n `노래를 재생한다.`\
-        # \n* **!노래추가**\
-        # \n `다음 노래를 설정한다.`\
-        # \n* **!노래확인**\
-        # \n `노래들을 확인한다.`\
-        # \n* **!노래스킵**\
-        # \n `다음 노래로 넘어간다.`\
-        # \n* **!노래삭제**\
-        # \n `노래를 삭제한다.`\
-        # \n* **!노래리셋**\
-        # \n `리스트에 있는 노래들을 모두 삭제한다.`\
+        \n* **!노래추가**\
+        \n `다음 노래를 설정한다.`\
+        \n* **!노래확인**\
+        \n `노래들을 확인한다.`\
+        \n* **!노래스킵**\
+        \n `다음 노래로 넘어간다.`\
+        \n* **!노래삭제**\
+        \n `노래를 삭제한다.`\
+        \n* **!노래리셋**\
+        \n `리스트에 있는 노래들을 모두 삭제한다.`\
         \n* **!노래일시정지**\
         \n `노래를 일시정지한다.`\
         \n* **!노래다시재생**\
@@ -564,21 +564,21 @@ async def add_song(ctx, search: str):
         await ctx.reply("음성 채널에 들어가라.")
         return
     
-    # 유튜브에서 음원 or URL 추출
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
         if not search.startswith("http"):
             await ctx.send("음원 검색중이다...")
-            search = f"ytsearch:{search}" # 검색어로 찾기
+            search = f"ytsearch:{search}"
         else:
-            await ctx.send("음원을 재생하겠다...")
-        info = ydl.extract_info(search, download=False) # URL로 찾기
+            await ctx.send("음원을 추가하겠다...")
+        info = ydl.extract_info(search, download=False)
         if 'entries' in info:
             info = info['entries'][0]
         url = info['url']
         title = info.get('title', '제목 없음')
-    SongList.append(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS))
 
-    await ctx.reply(f"**다음 노래!**\n{title}")
+    # 제목과 URL을 딕셔너리로 묶어서 저장
+    SongList.append({"title": title, "url": url})
+    await ctx.reply(f"**다음 노래 추가!**\n{title}")
 
 @add_song.error
 async def add_song_error(ctx, err):
@@ -590,9 +590,12 @@ async def add_song_error(ctx, err):
 # 노래확인
 @BOT.command(name="노래확인", description="노래 리스트를 확인한다.")
 async def check_song(ctx):
+    if not SongList:
+        await ctx.reply("대기 중인 노래가 없다.")
+        return
     songlist = "# 노래 리스트!\n"
     for i in range(len(SongList)):
-        songlist += f"**{i+1}. {SongList[i].title}**\n"
+        songlist += f"**{i+1}. {SongList[i]['title']}**\n"
     await ctx.reply(songlist)
 
 # 노래스킵
@@ -604,8 +607,13 @@ async def skip_song(ctx):
         return
     if ctx.voice_client and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
-        SongList.pop(0) # 리스트 맨앞 삭제
-        await ctx.reply(f"다음 노래 : **{SongList[0].title}**")
+        if SongList:
+            next_song = SongList.pop(0)
+            await ctx.reply(f"다음 노래 : **{next_song['title']}**")
+            source = discord.FFmpegPCMAudio(next_song['url'], **FFMPEG_OPTIONS)
+            ctx.voice_client.play(source)
+        else:
+            await ctx.reply("다음 노래가 없다. 끈다.")
 
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")

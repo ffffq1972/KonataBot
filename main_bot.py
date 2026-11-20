@@ -311,7 +311,7 @@ NoreDoUm = "# 노래 재생 방법!\
             \n`!노래일시정지` : 노래를 일시정지 시킨다.\
             \n`!노래다시재생` : 노래를 다시 재생시킨다.\
             \n\n## 다음노래 시리즈 사용방법!\
-            \n`!노래추가 \"{노래 제목}\"` : 노래 리스트 가장 마지막에 `노래 제목`을 추가한다.\
+            \n`!노래추가 \"{노래 제목}\" {N!}` : 노래 리스트 가장 마지막에 `노래 제목`을 추가한다.\n{N1}에 번호를 입력하면 해당 위치에 추가한다.\
             \n`!노래확인` : 노래들을 리스트로 확인한다.\
             \n`!노래스킵` : 이번 노래를 스킵하고 다음 노래로 넘어간다.\
             \n`!노래삭제 {N1}` : 리스트의 `N1`번째 노래를 삭제한다.\
@@ -568,7 +568,7 @@ async def play_error(ctx, err):
 
 # 다음 노래 추가
 @BOT.command(name="노래추가", description="노래를 추가한다.")
-async def add_song(ctx, search: str):
+async def add_song(ctx, search: str, index: int = None):
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -585,7 +585,13 @@ async def add_song(ctx, search: str):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    SongList.append({"title": title, "url": url})
+    if index is None:
+        SongList.append({"title": title, "url": url})
+    if index < 1 or index > len(SongList) + 1:
+        await ctx.reply(f"**Index Range Error!!!**\n## 가장 뒤에 곡을 추가했습니다. ({len(SongList)}번)\n{title}")
+        return
+    else:
+        SongList.insert(index - 1, {"title": title, "url": url})
     await ctx.reply(f"**노래 추가 완료! ({len(SongList)}번)**\n{title}")
 
 @add_song.error
@@ -604,7 +610,7 @@ async def check_song(ctx):
     songlist = "# 노래 리스트!\n"
     for i in range(len(SongList)):
         if i == 0:
-            songlist += f"**1\. {SongList[i]['title']} (재생중이다.)**\n"
+            songlist += f"## 1\. {SongList[i]['title']} (재생중이다.)\n"
         else:
             songlist += f"{i+1}\. {SongList[i]['title']}\n"
     await ctx.reply(songlist)
@@ -621,6 +627,36 @@ async def skip_song(ctx):
         if len(SongList) <= 1:
             await ctx.reply("다음 노래가 없다. 끈다.")
         ctx.voice_client.stop() # stop() 호출 시 on_song_end가 자동 실행되어 pop(0) 후 다음 곡 재생!
+
+# 노래리셋
+@BOT.command(name="노래리셋", description="노래 리스트를 초기화한다.")
+async def reset_song(ctx):
+    global SongList
+    if not ctx.author.voice:
+        await ctx.reply("음성 채널에 들어가라.")
+        return
+    SongList.clear()
+    ctx.reply("노래 리스트를 초기화했다.")
+
+# 노래삭제
+@BOT.command(name="노래삭제", description="노래를 삭제한다.")
+async def delete_song(ctx, index):
+    global SongList
+    if not ctx.author.voice:
+        await ctx.reply("음성 채널에 들어가라.")
+        return
+    if index.type != int:
+        await ctx.reply("숫자를 입력해라.")
+        return
+    SongList.pop(index - 1)
+    await ctx.reply(f"**{index}\. {SongList[index - 1]['title']}** 삭제 완료!")
+
+@delete_song.error
+async def delete_song_error(ctx, err):
+    if isinstance(err, commands.MissingRequiredArgument):
+        await ctx.reply("# 사용법\n`!노래삭제 {N1}` 형식으로 작성.")
+    else:
+        print(error(f"[+] 알 수 없는 에러!\n{err}"))
 
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")

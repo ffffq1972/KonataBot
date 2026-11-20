@@ -31,6 +31,7 @@ def success(text):
 # 노래
 SongList = [] # 리스트
 Infinite = False # 무한재생
+ignore_end = False # 강제정지 시 콜백 무시 플래그
 
 # 상태 저장 딕셔너리
 user_online_time = {} # 누적 온라인 초
@@ -489,12 +490,21 @@ async def check_game_time_error(ctx, err):
 async def HowtoUsePlayTheSong(ctx):
     await ctx.reply(NoreDoUm)
 
+# 강제 정지(!노래재생 덮어쓰기, !노래리셋) 시 콜백의 pop(0) 실행을 막기 위한 플래그
+ignore_end = False
+
 # 노래 끝났을 때 다음 곡 자동 재생 콜백
 def on_song_end(ctx, voice_client, err=None):
-    global SongList, Infinite
+    global SongList, Infinite, ignore_end
     if err:
         print(error(f"[+] 재생 에러!\n{err}"))
         return
+
+    # !노래재생 덮어쓰기나 !노래리셋으로 인해 멈춘 경우라면 pop(0) 하지 않고 종료
+    if ignore_end:
+        ignore_end = False
+        return
+
     if not voice_client or not voice_client.is_connected():
         return
 
@@ -516,7 +526,7 @@ def on_song_end(ctx, voice_client, err=None):
 # 재생
 @BOT.command(name="노래재생", description="노래를 재생한다.")
 async def play(ctx, search: str, param1: str = None):
-    global SongList, Infinite
+    global SongList, Infinite, ignore_end
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -542,17 +552,15 @@ async def play(ctx, search: str, param1: str = None):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    SongList.clear()
-    Infinite = False
-
-    # 기존 재생 중이던 곡이 있다면 정지
+    # 기존 재생 중이던 곡이 있다면 콜백 간섭을 끄고 정지
     if voice_client.is_playing() or voice_client.is_paused():
+        ignore_end = True
         voice_client.stop()
 
-    # 리스트 맨 앞에 바로 재생할 곡 삽입 (기존 재생곡이 있다면 덮어쓰기)
+    # 리스트 초기화 후 새 곡을 맨 앞에 넣고 재생
+    SongList.clear()
     SongList.append({"title": title, "url": url})
     Infinite = (param1 in ("-R", "-r"))
-
 
     source = discord.FFmpegPCMAudio(SongList[0]['url'], **FFMPEG_OPTIONS)
     voice_client.play(source, after=lambda e: on_song_end(ctx, voice_client, e))
@@ -572,9 +580,19 @@ async def play_error(ctx, err):
 # 다음 노래 추가
 @BOT.command(name="노래추가", description="노래를 추가한다.")
 async def add_song(ctx, search: str, index: int = None):
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
+
+    channel = ctx.author.voice.channel
+    voice_client = ctx.voice_client
+
+    # 봇이 음성 채널에 없으면 입장
+    if not voice_client:
+        voice_client = await channel.connect()
+    elif voice_client.channel != channel:
+        await voice_client.move_to(channel)
     
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
         if not search.startswith("http"):
@@ -590,6 +608,15 @@ async def add_song(ctx, search: str, index: int = None):
 
     song_data = {"title": title, "url": url}
 
+    # 리스트가 비어있거나 현재 아무것도 재생 중이 아니면 바로 첫 곡으로 재생
+    if not SongList and not voice_client.is_playing() and not voice_client.is_paused():
+        SongList.append(song_data)
+        Infinite = False
+        source = discord.FFmpegPCMAudio(SongList[0]['url'], **FFMPEG_OPTIONS)
+        voice_client.play(source, after=lambda e: on_song_end(ctx, voice_client, e))
+        await ctx.reply(f"**재생 시작!**\n{title}")
+        return
+
     if index is None:
         SongList.append(song_data)
         await ctx.reply(f"**노래 추가 완료! ({len(SongList)}번)**\n{title}")
@@ -602,13 +629,6 @@ async def add_song(ctx, search: str, index: int = None):
     else:
         SongList.insert(index - 1, song_data)
         await ctx.reply(f"**노래 추가 완료! ({index}번)**\n{title}")
-
-@add_song.error
-async def add_song_error(ctx, err):
-    if isinstance(err, commands.MissingRequiredArgument):
-        await ctx.reply("# 사용법\n`!노래추가 \"{노래 제목}\"` 형식으로 작성.")
-    else:
-        print(error(f"[+] 알 수 없는 에러!\n{err}"))
 
 # 노래확인
 @BOT.command(name="노래확인", description="노래 리스트를 확인한다.")
@@ -640,13 +660,14 @@ async def skip_song(ctx):
 # 노래리셋
 @BOT.command(name="노래리셋", description="노래 리스트를 초기화한다.")
 async def reset_song(ctx):
-    global SongList, Infinite
+    global SongList, Infinite, ignore_end
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
     SongList.clear()
     Infinite = False
     if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+        ignore_end = True
         ctx.voice_client.stop()
     await ctx.reply("노래 리스트를 초기화했다.")
 

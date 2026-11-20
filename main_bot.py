@@ -489,10 +489,34 @@ async def check_game_time_error(ctx, err):
 async def HowtoUsePlayTheSong(ctx):
     await ctx.reply(NoreDoUm)
 
+# 노래 끝났을 때 다음 곡 자동 재생 콜백
+def on_song_end(ctx, voice_client, err=None):
+    global SongList, Infinite
+    if err:
+        print(error(f"[+] 재생 에러!\n{err}"))
+        return
+    if not voice_client or not voice_client.is_connected():
+        return
+
+    if not Infinite:
+        if SongList:
+            SongList.pop(0) # 다 끝난 현재 곡(0번) 제거
+
+    if SongList:
+        source = discord.FFmpegPCMAudio(SongList[0]['url'], **FFMPEG_OPTIONS)
+        voice_client.play(source, after=lambda e: on_song_end(ctx, voice_client, e))
+        if not Infinite:
+            asyncio.run_coroutine_threadsafe(
+                ctx.send(f"**다음 노래 재생!**\n{SongList[0]['title']}"),
+                BOT.loop
+            )
+    else:
+        Infinite = False
+
 # 재생
 @BOT.command(name="노래재생", description="노래를 재생한다.")
 async def play(ctx, search: str, param1: str = None):
-    global SongList
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -500,18 +524,10 @@ async def play(ctx, search: str, param1: str = None):
     channel = ctx.author.voice.channel
     voice_client = ctx.voice_client
 
-    # 봇이 음성채널에 없으면 입장
-    try:
-        ctx.voice_client.pause() # 먼저 재생중이던 노래 멈추고 입장
-    except:
-        pass
     if not voice_client:
         voice_client = await channel.connect()
     elif voice_client.channel != channel:
         await voice_client.move_to(channel)
-
-    if voice_client.is_playing():
-        voice_client.stop()
 
     # 유튜브에서 음원 or URL 추출
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
@@ -526,29 +542,22 @@ async def play(ctx, search: str, param1: str = None):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    def play_loop(error=None):
-        if error:
-            print(f"[-] 재생 에러!\n{error}")
-            return
-        if voice_client and voice_client.is_connected():
-            source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-            voice_client.play(source, after=play_loop)
+    # 리스트 맨 앞에 바로 재생할 곡 삽입 (기존 재생곡이 있다면 덮어쓰기)
+    SongList.clear()
+    SongList.append({"title": title, "url": url})
+    Infinite = (param1 in ("-R", "-r"))
 
-    '''
-    리스트로 재생하는거 만들어야함
-    리스트 맨앞에 있는거 재생하고 다 재생하면 가장 앞에 있는거 pop하고 다시 맨앞에거 재생
-    추가하는거는 가장 뒤에 추가
-    리스트로 출력할때 인덱스번호 말고 그냥 1부터번호로
-    삭제할때도 인덱스번호 말고 1부터로 하게 조심하기!
-    '''
+    # 기존 재생 중이던 곡이 있다면 정지
+    if voice_client.is_playing() or voice_client.is_paused():
+        voice_client.stop()
 
-    if param1 == "-R" or param1 == "-r":
-        play_loop()
-        await ctx.reply(f"**무한재생 시작!**\n{title}")
+    source = discord.FFmpegPCMAudio(SongList[0]['url'], **FFMPEG_OPTIONS)
+    voice_client.play(source, after=lambda e: on_song_end(ctx, voice_client, e))
+
+    if Infinite:
+        await ctx.reply(f"**무한재생 시작!**\n{SongList[0]['title']}")
     else:
-        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
-        voice_client.play(source)
-        await ctx.reply(f"**재생 시작!**\n{title}")
+        await ctx.reply(f"**재생 시작!**\n{SongList[0]['title']}")
 
 @play.error
 async def play_error(ctx, err):
@@ -576,9 +585,8 @@ async def add_song(ctx, search: str):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    # 제목과 URL을 딕셔너리로 묶어서 저장
     SongList.append({"title": title, "url": url})
-    await ctx.reply(f"**다음 노래 추가!**\n{title}")
+    await ctx.reply(f"**노래 추가 완료! ({len(SongList)}번)**\n{title}")
 
 @add_song.error
 async def add_song_error(ctx, err):
@@ -591,29 +599,28 @@ async def add_song_error(ctx, err):
 @BOT.command(name="노래확인", description="노래 리스트를 확인한다.")
 async def check_song(ctx):
     if not SongList:
-        await ctx.reply("대기 중인 노래가 없다.")
+        await ctx.reply("노래 리스트가 비어있다.")
         return
     songlist = "# 노래 리스트!\n"
     for i in range(len(SongList)):
-        songlist += f"**{i+1}. {SongList[i]['title']}**\n"
+        if i == 0:
+            songlist += f"**1. {SongList[i]['title']} (재생중이다.)**\n"
+        else:
+            songlist += f"**{i+1}. {SongList[i]['title']}**\n"
     await ctx.reply(songlist)
 
 # 노래스킵
 @BOT.command(name="노래스킵", description="다음 노래로 넘어간다.")
 async def skip_song(ctx):
-    global SongList
+    global Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        if SongList:
-            next_song = SongList.pop(0)
-            await ctx.reply(f"다음 노래 : **{next_song['title']}**")
-            source = discord.FFmpegPCMAudio(next_song['url'], **FFMPEG_OPTIONS)
-            ctx.voice_client.play(source)
-        else:
+    if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+        Infinite = False # 스킵할 땐 무한재생 해제
+        if len(SongList) <= 1:
             await ctx.reply("다음 노래가 없다. 끈다.")
+        ctx.voice_client.stop() # stop() 호출 시 on_song_end가 자동 실행되어 pop(0) 후 다음 곡 재생!
 
 # 일시정지
 @BOT.command(name="노래일시정지", description="노래를 정지시킨다.")

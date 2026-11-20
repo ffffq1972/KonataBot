@@ -114,7 +114,8 @@ YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'default_search': 'ytsearch',
-    'source_address': '0.0.0.0'
+    'source_address': '0.0.0.0',
+    'remote_components': ['ejs:github']
 }
 
 FFMPEG_OPTIONS = {
@@ -333,13 +334,13 @@ async def helpSlash(interaction: discord.Interaction):
 # 느낌표명령어
 
 def ishelp(param): # --help가 포함됬는지
-    return "--help" not in param
+    return "--help" in param
 
 
 # 채팅
 # 도움
 @BOT.command(name="도움", description="도움! 명령어를 모르겠음!")
-async def helpPoint(ctx, *, param):
+async def helpPoint(ctx, *, param: str = ""):
     if ishelp(param):
         await ctx.reply("도움말에 도움말이 필요할까...?")
         return
@@ -347,7 +348,7 @@ async def helpPoint(ctx, *, param):
 
 # 이준바보
 @BOT.command(name="간고등어", description="멍청이")
-async def IjunBaBo(ctx, * , param):
+async def IjunBaBo(ctx, * , param: str = ""):
     if ishelp(param):
         await ctx.reply("간고등어는 멍청이다.")
         return
@@ -355,9 +356,10 @@ async def IjunBaBo(ctx, * , param):
 
 # 멍청이
 @BOT.command(name="멍청이", description="이@준")
-async def BaBoIjun(ctx, *, param):
+async def BaBoIjun(ctx, *, param: str = ""):
     if ishelp(param):
         await ctx.reply("간고등어를 부른다.")
+        return
     await ctx.send(f"# <@{ijun}>")
 
 # 안녕
@@ -378,9 +380,11 @@ async def ping(ctx):
 @BOT.command(name="say", description="반복해서 말한다")
 async def say(ctx, text: str, count: int):
     if count < 1:
-        text1 = "# 1번 이상 입력해."
+        await ctx.reply("# 1번 이상 입력해.")
+        return
     elif count > 100:
-        text1 = "# 도배 방지를 위해 최대 100번까지 가능하다."
+        await ctx.reply("# 도배 방지를 위해 최대 100번까지 가능하다.")
+        return
 
     res = f"{text}\n" * count
 
@@ -506,6 +510,9 @@ async def play(ctx, search: str, param1: str = None):
     elif voice_client.channel != channel:
         await voice_client.move_to(channel)
 
+    if voice_client.is_playing():
+        voice_client.stop()
+
     # 유튜브에서 음원 or URL 추출
     with yt_dlp.YoutubeDL(YDL_OPTIONS) as ydl:
         if not search.startswith("http"):
@@ -524,8 +531,8 @@ async def play(ctx, search: str, param1: str = None):
             print(f"[-] 재생 에러!\n{error}")
             return
         if voice_client and voice_client.is_connected():
-            SongList.append(discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS))
-            voice_client.play(SongList[0], after=play_loop)
+            source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+            voice_client.play(source, after=play_loop)
 
     '''
     리스트로 재생하는거 만들어야함
@@ -552,7 +559,7 @@ async def play_error(ctx, err):
 
 # 다음 노래 추가
 @BOT.command(name="노래추가", description="노래를 추가한다.")
-async def play(ctx, search: str):
+async def add_song(ctx, search: str):
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
@@ -573,8 +580,8 @@ async def play(ctx, search: str):
 
     await ctx.reply(f"**다음 노래!**\n{title}")
 
-@play.error
-async def play_error(ctx, err):
+@add_song.error
+async def add_song_error(ctx, err):
     if isinstance(err, commands.MissingRequiredArgument):
         await ctx.reply("# 사용법\n`!노래추가 \"{노래 제목}\"` 형식으로 작성.")
     else:
@@ -598,7 +605,7 @@ async def resume(ctx):
         return
     if ctx.voice_client and ctx.voice_client.is_paused():
         ctx.voice_client.resume()
-        await ctx.reply("そして、　時は動き出す。。。")
+        await ctx.reply("そして、 時は動き出す。。。")
 
 # 퇴장
 @BOT.command(name="노래퇴장", description="노래를 재생하는 봇을 퇴장시킨다.")
@@ -614,7 +621,7 @@ async def leave(ctx):
 
 # 나가
 @BOT.command(name="나가", description="노래를 재생하는 봇을 퇴장시킨다.")
-async def leave(ctx):
+async def leave_naga(ctx):
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return

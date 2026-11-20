@@ -587,7 +587,7 @@ async def add_song(ctx, search: str, index: int = None):
 
     if index is None:
         SongList.append({"title": title, "url": url})
-    if index < 1 or index > len(SongList) + 1:
+    elif index < 1 or index > len(SongList) + 1:
         await ctx.reply(f"**Index Range Error!!!**\n## 가장 뒤에 곡을 추가했습니다. ({len(SongList)}번)\n{title}")
         return
     else:

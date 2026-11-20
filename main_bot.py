@@ -604,9 +604,9 @@ async def check_song(ctx):
     songlist = "# 노래 리스트!\n"
     for i in range(len(SongList)):
         if i == 0:
-            songlist += f"**1. {SongList[i]['title']} (재생중이다.)**\n"
+            songlist += f"**1\. {SongList[i]['title']} (재생중이다.)**\n"
         else:
-            songlist += f"**{i+1}. {SongList[i]['title']}**\n"
+            songlist += f"{i+1}\. {SongList[i]['title']}\n"
     await ctx.reply(songlist)
 
 # 노래스킵

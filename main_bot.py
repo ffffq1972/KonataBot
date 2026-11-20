@@ -542,14 +542,17 @@ async def play(ctx, search: str, param1: str = None):
         url = info['url']
         title = info.get('title', '제목 없음')
 
-    # 리스트 맨 앞에 바로 재생할 곡 삽입 (기존 재생곡이 있다면 덮어쓰기)
     SongList.clear()
-    SongList.append({"title": title, "url": url})
-    Infinite = (param1 in ("-R", "-r"))
+    Infinite = False
 
     # 기존 재생 중이던 곡이 있다면 정지
     if voice_client.is_playing() or voice_client.is_paused():
         voice_client.stop()
+
+    # 리스트 맨 앞에 바로 재생할 곡 삽입 (기존 재생곡이 있다면 덮어쓰기)
+    SongList.append({"title": title, "url": url})
+    Infinite = (param1 in ("-R", "-r"))
+
 
     source = discord.FFmpegPCMAudio(SongList[0]['url'], **FFMPEG_OPTIONS)
     voice_client.play(source, after=lambda e: on_song_end(ctx, voice_client, e))
@@ -585,19 +588,20 @@ async def add_song(ctx, search: str, index: int = None):
         url = info['url']
         title = info.get('title', '제목 없음')
 
+    song_data = {"title": title, "url": url}
+
     if index is None:
-        SongList.append({"title": title, "url": url})
-    elif index < 2 or index > len(SongList) + 1:
-        await ctx.reply(f"**Index Range Error!!!**\n## 가장 뒤에 곡을 추가했습니다. ({len(SongList)}번)\n{title}")
-        return
+        SongList.append(song_data)
+        await ctx.reply(f"**노래 추가 완료! ({len(SongList)}번)**\n{title}")
     elif index == 1:
+        SongList.insert(1, song_data)
         await ctx.reply(f"**Index Range Error!!!**\n## 다음 곡으로 추가했습니다. (2번)\n{title}")
-        return
+    elif index < 2 or index > len(SongList) + 1:
+        SongList.append(song_data)
+        await ctx.reply(f"**Index Range Error!!!**\n## 가장 뒤에 곡을 추가했습니다. ({len(SongList)}번)\n{title}")
     else:
-        SongList.insert(index - 1, {"title": title, "url": url})
-    if index is None:
-        index = len(SongList)
-    await ctx.reply(f"**노래 추가 완료! ({index}번)**\n{title}")
+        SongList.insert(index - 1, song_data)
+        await ctx.reply(f"**노래 추가 완료! ({index}번)**\n{title}")
 
 @add_song.error
 async def add_song_error(ctx, err):
@@ -636,25 +640,42 @@ async def skip_song(ctx):
 # 노래리셋
 @BOT.command(name="노래리셋", description="노래 리스트를 초기화한다.")
 async def reset_song(ctx):
-    global SongList
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
     SongList.clear()
-    ctx.reply("노래 리스트를 초기화했다.")
+    Infinite = False
+    if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+        ctx.voice_client.stop()
+    await ctx.reply("노래 리스트를 초기화했다.")
 
 # 노래삭제
 @BOT.command(name="노래삭제", description="노래를 삭제한다.")
-async def delete_song(ctx, index):
-    global SongList
+async def delete_song(ctx, index: int):
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
-    if index.type != int:
-        await ctx.reply("숫자를 입력해라.")
+    if not SongList:
+        await ctx.reply("삭제할 노래가 없다.")
         return
-    SongList.pop(index - 1)
-    await ctx.reply(f"**{index}\. {SongList[index - 1]['title']}** 삭제 완료!")
+    if index < 1 or index > len(SongList):
+        await ctx.reply(f"1번부터 {len(SongList)}번 사이로 입력해라.")
+        return
+
+    if index == 1:
+        # 1번은 현재 재생중인 곡이므로 스킵과 동일하게 처리
+        deleted_title = SongList[0]['title']
+        Infinite = False
+        if ctx.voice_client and (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+            ctx.voice_client.stop()
+        else:
+            SongList.pop(0)
+        await ctx.reply(f"**1\. {deleted_title}** (현재 재생곡) 삭제 완료!")
+    else:
+        deleted_song = SongList.pop(index - 1)
+        await ctx.reply(f"**{index}\. {deleted_song['title']}** 삭제 완료!")
 
 @delete_song.error
 async def delete_song_error(ctx, err):
@@ -686,24 +707,30 @@ async def resume(ctx):
 # 퇴장
 @BOT.command(name="노래퇴장", description="노래를 재생하는 봇을 퇴장시킨다.")
 async def leave(ctx):
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
         await ctx.reply("퇴장!")
+        SongList.clear()
+        Infinite = False
     else:
         await ctx.reply("퇴장 불가능!")
 
 # 나가
 @BOT.command(name="나가", description="노래를 재생하는 봇을 퇴장시킨다.")
 async def leave_naga(ctx):
+    global SongList, Infinite
     if not ctx.author.voice:
         await ctx.reply("음성 채널에 들어가라.")
         return
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
         await ctx.reply("퇴장!")
+        SongList.clear()
+        Infinite = False
     else:
         pass
 
